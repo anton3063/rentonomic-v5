@@ -1,83 +1,54 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List
-from datetime import datetime
-from fastapi.middleware.cors import CORSMiddleware
-
-from sqlalchemy import create_engine, Column, String, Text, DateTime
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import create_engine, Column, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import uuid
-import os
 
-# Replace with your actual Supabase connection details
-DB_USER = "postgres"
-DB_PASSWORD = "your_password_here"
-DB_HOST = "your_host_here.supabase.co"
-DB_PORT = "5432"
-DB_NAME = "postgres"
-
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# === DATABASE CONFIG ===
+DATABASE_URL = "postgresql://postgres:YOUR_PASSWORD_HERE@db.dzwtgztiipuqnxrpeoye.supabase.co:5432/postgres"
 
 engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
-
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-app = FastAPI()
-
-# Allow frontend access
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Can restrict to your frontend URL later
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Database model
+# === MODEL ===
 class Listing(Base):
     __tablename__ = "listings"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
-    description = Column(Text, nullable=False)
-    location = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    description = Column(Text, nullable=True)
 
-# Pydantic model for request/response
-class ListingCreate(BaseModel):
-    name: str
-    description: str
-    location: str
-
-class ListingRead(ListingCreate):
-    id: uuid.UUID
-    created_at: datetime
-
+# Create tables if not exists
 Base.metadata.create_all(bind=engine)
 
-@app.post("/listings", response_model=ListingRead)
+# === API SETUP ===
+app = FastAPI()
+
+class ListingCreate(BaseModel):
+    name: str
+    description: str = None
+
+@app.post("/listings")
 def create_listing(listing: ListingCreate):
     db = SessionLocal()
-    new_listing = Listing(
-        name=listing.name,
-        description=listing.description,
-        location=listing.location
-    )
+    new_listing = Listing(name=listing.name, description=listing.description)
     db.add(new_listing)
     db.commit()
     db.refresh(new_listing)
     db.close()
-    return new_listing
+    return {"message": "Listing created", "id": new_listing.id}
 
-@app.get("/listings", response_model=List[ListingRead])
+@app.get("/listings")
 def get_listings():
     db = SessionLocal()
-    listings = db.query(Listing).order_by(Listing.created_at.desc()).all()
+    listings = db.query(Listing).all()
     db.close()
     return listings
+
+
+   
 
 
 
