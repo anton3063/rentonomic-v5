@@ -3,7 +3,7 @@ uvicorn
 requests
 cloudinary
 python-dotenv
-
+python-multipart
 
 
 
