@@ -1,72 +1,56 @@
-from fastapi import FastAPI, UploadFile, File
-from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, String, Text, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-import uuid
-import datetime
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+import requests
 import cloudinary
 import cloudinary.uploader
-import os
 
-# === DATABASE CONNECTION (SUPABASE POSTGRES) ===
-DATABASE_URL = "postgresql://postgres:Concrete-0113xyz@db.dzwtgztiipuqnxrpeoye.supabase.co:5432/postgres"
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-# === CLOUDINARY SETUP ===
-cloudinary.config(
-    cloud_name="YOUR_CLOUD_NAME",       # 🔁 Replace with your Cloudinary cloud name
-    api_key="YOUR_API_KEY",             # 🔁 Replace with your Cloudinary API key
-    api_secret="YOUR_API_SECRET"        # 🔁 Replace with your Cloudinary API secret
-)
-
-# === DATABASE MODEL ===
-class Listing(Base):
-    __tablename__ = "listings"
-    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, nullable=False)
-    description = Column(Text)
-    location = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-
-Base.metadata.create_all(bind=engine)
-
-# === FASTAPI SETUP ===
 app = FastAPI()
 
-class ListingCreate(BaseModel):
-    name: str
-    description: str | None = None
-    location: datetime.datetime | None = None
+# Enable CORS so frontend can talk to backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# === SUPABASE CONFIG ===
+SUPABASE_URL = "https://dzwtgztiiupqnxrpeoye.supabase.co"
+SUPABASE_API_KEY = "Concrete-0113xyz"  # Your real Supabase service role key
+
+headers = {
+    "apikey": SUPABASE_API_KEY,
+    "Authorization": f"Bearer {SUPABASE_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+# === CLOUDINARY CONFIG (optional – safe to leave as-is if unused) ===
+cloudinary.config(
+    cloud_name="YOUR_CLOUD_NAME",
+    api_key="YOUR_API_KEY",
+    api_secret="YOUR_API_SECRET"
+)
+
+# === POST TO SUPABASE LISTINGS ===
+def add_listing(listing: dict):
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/listings",
+        headers=headers,
+        json=listing
+    )
+    return response.json()
 
 @app.post("/listings")
-def create_listing(listing: ListingCreate):
-    db = SessionLocal()
-    new_listing = Listing(
-        name=listing.name,
-        description=listing.description,
-        location=listing.location
-    )
-    db.add(new_listing)
-    db.commit()
-    db.refresh(new_listing)
-    db.close()
-    return {"message": "Listing created", "id": new_listing.id}
+async def create_listing(request: Request):
+    data = await request.json()
+    result = add_listing(data)
+    return {"status": "success", "result": result}
 
-@app.get("/listings")
-def get_listings():
-    db = SessionLocal()
-    listings = db.query(Listing).all()
-    db.close()
-    return listings
+@app.get("/")
+def home():
+    return {"message": "Rentonomic backend is running"}
 
-# === (Optional) CLOUDINARY IMAGE UPLOAD ROUTE ===
-@app.post("/upload-image/")
-def upload_image(file: UploadFile = File(...)):
-    result = cloudinary.uploader.upload(file.file)
-    return {"secure_url": result["secure_url"]}
+
 
 
 
