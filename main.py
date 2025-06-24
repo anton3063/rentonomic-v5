@@ -1,5 +1,4 @@
 import os
-import io
 import uuid
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +9,7 @@ import cloudinary.uploader
 
 app = FastAPI()
 
-# CORS setup - allow all origins (change in production)
+# CORS configuration - adjust origins for production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,9 +39,11 @@ async def create_listing(
 ):
     try:
         contents = await image.read()
-        upload_result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=str(uuid.uuid4()))
+        # Upload image bytes directly to Cloudinary
+        upload_result = cloudinary.uploader.upload(contents, public_id=str(uuid.uuid4()))
         image_url = upload_result["secure_url"]
 
+        # Shorten postcode for GDPR
         short_location = location.strip().split()[0]
 
         listing_data = {
@@ -52,6 +53,7 @@ async def create_listing(
             "price": price,
             "image_url": image_url,
         }
+
         supabase.table("listings").insert(listing_data).execute()
 
         return {"message": "Listing created successfully"}
@@ -66,6 +68,7 @@ def get_listings():
         return response.data
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 
