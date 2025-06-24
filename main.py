@@ -1,33 +1,34 @@
+import os
+import io
+import uuid
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import create_client, Client
 import cloudinary
 import cloudinary.uploader
-import uuid
-import io
 
 app = FastAPI()
 
-# CORS setup for frontend connection
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with your frontend domain for production
+    allow_origins=["*"],  # Replace "*" with your frontend domain for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Supabase credentials
-SUPABASE_URL = "https://dzwtgztiiupqnxrpeoye.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
+# Load Supabase config from environment variables
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Cloudinary config with your real credentials
+# Configure Cloudinary with your credentials
 cloudinary.config(
     cloud_name="dkzwvm3hh",
     api_key="277136188375582",
-    api_secret="w3P038_rap8tlmjNS7su1oaz-0w"
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")  # Make sure to set this env var on Render
 )
 
 @app.post("/listing")
@@ -40,8 +41,8 @@ async def create_listing(
 ):
     try:
         contents = await image.read()
-        result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=str(uuid.uuid4()))
-        image_url = result["secure_url"]
+        upload_result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=str(uuid.uuid4()))
+        image_url = upload_result["secure_url"]
 
         short_location = location.strip().split()[0]
 
@@ -66,6 +67,7 @@ def get_listings():
         return response.data
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 
