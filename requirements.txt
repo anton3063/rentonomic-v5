@@ -4,6 +4,8 @@ python-dotenv
 requests
 psycopg2-binary
 cloudinary==1.34.0
+SQLAlchemy
+
 
 
 
