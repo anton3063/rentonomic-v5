@@ -1,10 +1,8 @@
-from fastapi import FastAPI, UploadFile, Form, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from typing import List
 from pydantic import BaseModel
+from typing import List
 import cloudinary.uploader
-import json
 import os
 from dotenv import load_dotenv
 
@@ -12,7 +10,7 @@ load_dotenv()
 
 app = FastAPI()
 
-# CORS setup
+# Allow frontend connection
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,14 +19,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Cloudinary config
+# Cloudinary configuration
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
     api_secret=os.getenv("CLOUDINARY_API_SECRET")
 )
 
-LISTINGS_FILE = "listings.json"
+# Temporary in-memory database
+listings = []
 
 # Listing model
 class Listing(BaseModel):
@@ -38,22 +37,6 @@ class Listing(BaseModel):
     image_url: str
     price_per_day: float
 
-# Load listings from file
-def load_listings():
-    if os.path.exists(LISTINGS_FILE):
-        with open(LISTINGS_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-# Save listings to file
-def save_listings(data):
-    with open(LISTINGS_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-@app.get("/listings", response_model=List[Listing])
-def get_listings():
-    return load_listings()
-
 @app.post("/listings")
 async def create_listing(
     title: str = Form(...),
@@ -62,25 +45,24 @@ async def create_listing(
     price_per_day: float = Form(...),
     image: UploadFile = File(...)
 ):
-    try:
-        upload_result = cloudinary.uploader.upload(image.file)
-        image_url = upload_result.get("secure_url")
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    # Upload image to Cloudinary
+    result = cloudinary.uploader.upload(image.file)
+    image_url = result.get("secure_url")
 
+    # Build listing
     new_listing = {
         "title": title,
         "description": description,
         "location": location,
-        "image_url": image_url,
-        "price_per_day": price_per_day
+        "price_per_day": price_per_day,
+        "image_url": image_url
     }
-
-    listings = load_listings()
     listings.append(new_listing)
-    save_listings(listings)
+    return {"message": "Listing created successfully!", "listing": new_listing}
 
-    return {"message": "Listing created successfully", "listing": new_listing}
+@app.get("/listings", response_model=List[Listing])
+def get_listings():
+    return listings
 
 
 
