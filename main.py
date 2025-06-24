@@ -13,7 +13,7 @@ app = FastAPI()
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace "*" with your frontend domain for production
+    allow_origins=["*"],  # Replace "*" with your frontend domain in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,11 +24,11 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Configure Cloudinary with your credentials
+# Configure Cloudinary with environment variable for secret
 cloudinary.config(
-    cloud_name="dkzwvm3hh",
-    api_key="277136188375582",
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")  # Make sure to set this env var on Render
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
 )
 
 @app.post("/listing")
@@ -44,6 +44,7 @@ async def create_listing(
         upload_result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=str(uuid.uuid4()))
         image_url = upload_result["secure_url"]
 
+        # Extract first part of postcode for GDPR
         short_location = location.strip().split()[0]
 
         listing_data = {
@@ -55,6 +56,7 @@ async def create_listing(
         }
         supabase.table("listings").insert(listing_data).execute()
 
+        # Return dict for proper JSON response
         return {"message": "Listing created successfully"}
 
     except Exception as e:
@@ -64,9 +66,11 @@ async def create_listing(
 def get_listings():
     try:
         response = supabase.table("listings").select("*").execute()
+        # Return list of dicts for frontend
         return response.data
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 
