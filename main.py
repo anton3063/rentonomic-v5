@@ -12,7 +12,7 @@ app = FastAPI()
 # CORS setup for frontend connection
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with your frontend domain when ready
+    allow_origins=["*"],  # Update with your frontend domain for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -27,7 +27,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 cloudinary.config(
     cloud_name="dkzwvm3hh",
     api_key="277136188375582",
-    api_secret="YOUR_API_SECRET"  # Replace this with your actual API secret string!
+    api_secret="w3P038_rap8tlmjNS7su1oaz-0w"
 )
 
 @app.post("/listing")
@@ -66,6 +66,7 @@ def get_listings():
         return response.data
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 
