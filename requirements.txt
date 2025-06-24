@@ -3,7 +3,8 @@ uvicorn
 python-dotenv
 requests
 psycopg2-binary
-cloudinary
+cloudinary==1.34.0
+
 
 
 
