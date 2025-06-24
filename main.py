@@ -12,7 +12,7 @@ app = FastAPI()
 # CORS setup for frontend connection
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Replace with Netlify domain later if you want
+    allow_origins=["*"],  # Replace with your frontend domain when ready
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,11 +23,11 @@ SUPABASE_URL = "https://dzwtgztiiupqnxrpeoye.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Cloudinary setup (replace these placeholders)
+# Cloudinary config with your real credentials
 cloudinary.config(
-    cloud_name="your_cloud_name",
-    api_key="your_api_key",
-    api_secret="your_api_secret"
+    cloud_name="dkzwvm3hh",
+    api_key="277136188375582",
+    api_secret="YOUR_API_SECRET"  # Replace this with your actual API secret string!
 )
 
 @app.post("/listing")
@@ -39,15 +39,12 @@ async def create_listing(
     image: UploadFile = Form(...)
 ):
     try:
-        # Read image file into memory
         contents = await image.read()
         result = cloudinary.uploader.upload(io.BytesIO(contents), public_id=str(uuid.uuid4()))
         image_url = result["secure_url"]
 
-        # Extract general postcode area (e.g. "YO1" from "YO1 7HD")
         short_location = location.strip().split()[0]
 
-        # Save listing to Supabase
         listing_data = {
             "title": title,
             "description": description,
@@ -69,6 +66,7 @@ def get_listings():
         return response.data
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 
