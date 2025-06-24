@@ -1,4 +1,6 @@
-import os
+import os import os
+print("SUPABASE_URL =", os.getenv("SUPABASE_URL"))
+print("SUPABASE_KEY =", os.getenv("SUPABASE_KEY"))
 import io
 import uuid
 from fastapi import FastAPI, UploadFile, Form
