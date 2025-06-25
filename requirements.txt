@@ -1,10 +1,12 @@
-fastapi
-uvicorn
-pydantic
-supabase-py
-cloudinary
-python-dotenv
-requests
+from fastapi import FastAPI, Form
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from supabase import create_client, Client
+import cloudinary
+import cloudinary.uploader
+import requests
+import os
+
 
 
 
