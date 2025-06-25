@@ -7,16 +7,16 @@ import os
 
 app = FastAPI()
 
-# Allow CORS from all origins for testing; adjust for production
+# CORS: allow all origins for now (test phase)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load environment variables
+# Load environment variables (make sure these are set on Render or your environment)
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
@@ -24,7 +24,7 @@ CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 if not all([SUPABASE_URL, SUPABASE_KEY, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
-    raise RuntimeError("One or more environment variables are missing")
+    raise RuntimeError("One or more environment variables are missing. Please check your .env or Render settings.")
 
 # Initialize Supabase client
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -45,13 +45,14 @@ async def create_listing(
     image: UploadFile = File(...),
 ):
     try:
-        # Read image bytes
+        # Read image bytes from uploaded file
         contents = await image.read()
-        # Upload image to Cloudinary
+
+        # Upload image to Cloudinary and get URL
         upload_result = cloudinary.uploader.upload(contents, resource_type="image")
         image_url = upload_result.get("secure_url")
         if not image_url:
-            raise HTTPException(status_code=500, detail="Failed to upload image")
+            raise HTTPException(status_code=500, detail="Failed to upload image to Cloudinary")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload error: {e}")
 
@@ -63,12 +64,13 @@ async def create_listing(
         "price_per_day": price_per_day,
         "image_url": image_url,
     }
+
     response = supabase.table("listings").insert(data).execute()
 
     if response.error:
         raise HTTPException(status_code=500, detail=f"Database error: {response.error.message}")
 
-    return {"message": "Listing created", "listing": response.data}
+    return {"message": "Listing created successfully", "listing": response.data}
 
 @app.get("/listings")
 async def get_listings():
