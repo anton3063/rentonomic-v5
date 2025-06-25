@@ -1,12 +1,11 @@
-fastapi
-uvicorn
-requests
-cloudinary
-python-dotenv
-gotrue==2.3.1
-postgrest==0.10.6
-realtime==1.0.0
-supabase==1.0.3
+fastapi==0.115.1
+uvicorn==0.23.2
+requests==2.32.4
+cloudinary==1.44.1
+python-dotenv==1.0.1
+supabase-py==1.2.0
+gotrue==2.1.0
+
 
 
 
