@@ -4,7 +4,7 @@ requests==2.32.4
 cloudinary==1.44.1
 python-dotenv==1.0.1
 supabase-py==1.2.0
-gotrue==1.2.0
+
 
 
 
