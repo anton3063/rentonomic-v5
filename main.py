@@ -1,7 +1,15 @@
 import os
+import logging
+from fastapi import FastAPI, HTTPException
 
-print("DEBUG: Checking environment variables...")
-required_vars = [
+# Setup logging for debug
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+
+# Required environment variables
+REQUIRED_ENV_VARS = [
     "SUPABASE_URL",
     "SUPABASE_KEY",
     "CLOUDINARY_CLOUD_NAME",
@@ -9,22 +17,32 @@ required_vars = [
     "CLOUDINARY_API_SECRET",
 ]
 
-missing_vars = []
-for var in required_vars:
-    value = os.getenv(var)
-    if value is None:
-        print(f"DEBUG: {var} is MISSING!")
-        missing_vars.append(var)
-    elif value.strip() == "":
-        print(f"DEBUG: {var} is EMPTY or whitespace!")
-        missing_vars.append(var)
+# Check and log environment variables presence
+for var in REQUIRED_ENV_VARS:
+    val = os.getenv(var)
+    if val is None or val.strip() == "":
+        logger.error(f"Missing environment variable: {var}")
+        raise RuntimeError(f"Missing required environment variable: {var}")
     else:
-        print(f"DEBUG: {var} is set to: '{value[:4]}...'")  # show first 4 chars only for privacy
+        # Log only the first 5 characters for safety
+        logger.debug(f"{var} is set to: '{val[:5]}...'")
 
-if missing_vars:
-    raise RuntimeError(f"One or more environment variables are missing or empty: {missing_vars}")
-else:
-    print("DEBUG: All required environment variables are set correctly.")
+@app.get("/")
+async def root():
+    return {"message": "Rentonomic backend is running!"}
+
+# Add your API routes here...
+# Example:
+# @app.get("/listings")
+# async def get_listings():
+#     # Your code to fetch listings from Supabase
+#     pass
+
+# @app.post("/listing")
+# async def add_listing():
+#     # Your code to add a listing, including handling images with Cloudinary
+#     pass
+
 
 
 
