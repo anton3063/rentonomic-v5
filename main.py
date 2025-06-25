@@ -1,39 +1,30 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Form, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from supabase import create_client, Client
 import cloudinary
 import cloudinary.uploader
-from supabase import create_client
-import os
 
 app = FastAPI()
 
-# CORS: allow all origins for now (test phase)
+# Allow frontend to access backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],  # Open to all origins; adjust if needed
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load environment variables (make sure these are set on Render or your environment)
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
-CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
-CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+# Supabase config
+SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-if not all([SUPABASE_URL, SUPABASE_KEY, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
-    raise RuntimeError("One or more environment variables are missing. Please check your .env or Render settings.")
-
-# Initialize Supabase client
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# Configure Cloudinary
+# Cloudinary config (fully filled in)
 cloudinary.config(
-    cloud_name=CLOUDINARY_CLOUD_NAME,
-    api_key=CLOUDINARY_API_KEY,
-    api_secret=CLOUDINARY_API_SECRET,
+    cloud_name="dkzvwm3hh",
+    api_key="277136188375582",
+    api_secret="w3P038_rap8tImjNS..."  # Replace with full secret if needed
 )
 
 @app.post("/listing")
@@ -45,18 +36,18 @@ async def create_listing(
     image: UploadFile = File(...),
 ):
     try:
-        # Read image bytes from uploaded file
-        contents = await image.read()
-
-        # Upload image to Cloudinary and get URL
-        upload_result = cloudinary.uploader.upload(contents, resource_type="image")
+        upload_result = cloudinary.uploader.upload(
+            image.file,
+            resource_type="image",
+            upload_preset="rentonomic_unsigned",
+            folder="rentonomic"
+        )
         image_url = upload_result.get("secure_url")
         if not image_url:
-            raise HTTPException(status_code=500, detail="Failed to upload image to Cloudinary")
+            raise HTTPException(status_code=500, detail="Failed to upload image")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload error: {e}")
 
-    # Prepare data for Supabase insertion
     data = {
         "name": name,
         "description": description,
@@ -64,20 +55,20 @@ async def create_listing(
         "price_per_day": price_per_day,
         "image_url": image_url,
     }
-
     response = supabase.table("listings").insert(data).execute()
 
     if response.error:
         raise HTTPException(status_code=500, detail=f"Database error: {response.error.message}")
 
-    return {"message": "Listing created successfully", "listing": response.data}
+    return {"message": "Listing created", "listing": response.data}
 
 @app.get("/listings")
 async def get_listings():
     response = supabase.table("listings").select("*").execute()
     if response.error:
         raise HTTPException(status_code=500, detail=f"Database error: {response.error.message}")
-    return {"listings": response.data}
+    return response.data
+
 
 
 
