@@ -1,14 +1,13 @@
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
 import cloudinary
 import cloudinary.uploader
-import os
+import requests
 
 app = FastAPI()
 
-# Allow CORS for frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,12 +16,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Supabase setup
 SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Cloudinary setup
 cloudinary.config(
     cloud_name="dhgzj1bkj",
     api_key="367543761227265",
@@ -30,29 +27,40 @@ cloudinary.config(
     secure=True
 )
 
-class Listing(BaseModel):
-    title: str
-    location: str
-    description: str
-    price_per_day: float
-    image_url: str
-
 @app.post("/listings")
-async def create_listing(listing: Listing):
+async def create_listing(
+    title: str = Form(...),
+    description: str = Form(...),
+    location: str = Form(...),
+    price_per_day: float = Form(...),
+    image: UploadFile = File(...),
+):
+    try:
+        upload_result = cloudinary.uploader.upload(image.file, resource_type="image")
+        image_url = upload_result.get("secure_url")
+        if not image_url:
+            raise HTTPException(status_code=500, detail="Failed to upload image")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image upload error: {e}")
+
     data = {
-        "title": listing.title,
-        "location": listing.location,
-        "description": listing.description,
-        "price_per_day": listing.price_per_day,
-        "image_url": listing.image_url
+        "title": title,
+        "description": description,
+        "location": location,
+        "price_per_day": price_per_day,
+        "image_url": image_url,
     }
     response = supabase.table("listings").insert(data).execute()
-    return {"message": "Listing created", "data": response.data}
+    if response.error:
+        raise HTTPException(status_code=500, detail=f"Database error: {response.error.message}")
+
+    return {"message": "Listing created", "listing": response.data}
 
 @app.get("/listings")
 async def get_listings():
     response = supabase.table("listings").select("*").execute()
     return response.data
+
 
 
 
