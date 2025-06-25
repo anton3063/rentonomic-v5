@@ -1,8 +1,11 @@
 fastapi
-uvicorn
+uvicorn[standard]
 python-multipart
+pydantic
 cloudinary
 supabase
+python-dotenv
+
 
 
 
