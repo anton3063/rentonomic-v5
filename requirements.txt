@@ -1,9 +1,13 @@
 fastapi
 uvicorn
 requests
-python-dotenv
 cloudinary
-supabase-py
+python-dotenv
+gotrue==2.3.1
+postgrest==0.10.6
+realtime==1.0.0
+supabase==1.0.3
+
 
 
 
