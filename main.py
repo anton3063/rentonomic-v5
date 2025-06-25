@@ -9,7 +9,7 @@ app = FastAPI()
 # Allow frontend to access backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Open to all; restrict later if needed
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -20,11 +20,10 @@ SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Cloudinary config
+# Cloudinary config (unsigned upload — no secret!)
 cloudinary.config(
     cloud_name="dkzvwm3hh",
-    api_key="277136188375582",
-    api_secret="w3P038_rap8tImjNSiD6oNKcbHo"
+    api_key="277136188375582"
 )
 
 @app.post("/listing")
@@ -67,6 +66,7 @@ async def get_listings():
     if response.error:
         raise HTTPException(status_code=500, detail=f"Database error: {response.error.message}")
     return response.data
+
 
 
 
