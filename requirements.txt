@@ -4,6 +4,8 @@ requests
 python-dotenv
 supabase
 cloudinary
+python-multipart
+
 
 
 
