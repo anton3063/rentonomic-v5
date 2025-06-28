@@ -1,40 +1,36 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from supabase import create_client, Client
-import cloudinary
-import cloudinary.uploader
+from pydantic import BaseModel
+import requests
+import uuid
 import os
-from uuid import uuid4
+from supabase import create_client, Client
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = FastAPI()
 
-# === CORS CONFIGURATION ===
+# Allow frontend origin
+origins = ["https://rentonomic.com"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://rentonomic.com",
-        "https://www.rentonomic.com"
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# === SUPABASE SETUP ===
+# Supabase config
 SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# === CLOUDINARY SETUP ===
-cloudinary.config(
-    cloud_name="dkwzvm3hh",
-    api_key="577527256799347",
-    api_secret="jzODb-QQRdmZHOA3A2N-WMbJqJo",
-    secure=True
-)
+# Cloudinary config
+CLOUDINARY_UPLOAD_URL = "https://api.cloudinary.com/v1_1/dhyl0yxej/image/upload"
+CLOUDINARY_API_KEY = "122738243499659"
+CLOUDINARY_API_SECRET = "PBHAFuFRmNFVK7IQlznRuZpBiDw"
 
 @app.post("/listing")
 async def create_listing(
@@ -46,29 +42,36 @@ async def create_listing(
 ):
     try:
         # Upload image to Cloudinary
-        result = cloudinary.uploader.upload(image.file, folder="rentonomic", public_id=str(uuid4()))
-        image_url = result.get("secure_url")
+        files = {"file": (image.filename, await image.read())}
+        data = {
+            "api_key": CLOUDINARY_API_KEY,
+            "timestamp": str(uuid.uuid4()),
+            "folder": "rentonomic"
+        }
+        response = requests.post(CLOUDINARY_UPLOAD_URL, data=data, files=files, auth=(CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET))
+
+        if response.status_code != 200:
+            return {"error": "Image upload failed"}
+
+        image_url = response.json().get("secure_url")
 
         # Insert listing into Supabase
+        short_location = location.split()[0].upper()  # e.g., "YO8"
         data = {
             "title": title,
             "description": description,
-            "location": location[:3].upper(),  # Truncate for GDPR
+            "location": short_location,
             "price_per_day": price_per_day,
             "image_url": image_url
         }
-        response = supabase.table("listings").insert(data).execute()
-        return {"message": "Listing created successfully", "data": response.data}
+
+        result = supabase.table("listings").insert(data).execute()
+
+        return {"message": "Listing created successfully", "data": result.data}
+
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/listings")
-def get_listings():
-    try:
-        response = supabase.table("listings").select("*").execute()
-        return response.data
-    except Exception as e:
-        return {"error": str(e)}
 
 
 
