@@ -1,36 +1,31 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import requests
-import uuid
-import os
 from supabase import create_client, Client
-from dotenv import load_dotenv
-
-load_dotenv()
+import cloudinary.uploader
+import os
 
 app = FastAPI()
 
-# Allow frontend origin
-origins = ["https://rentonomic.com"]
-
+# Allow frontend domain (CORS fix)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["https://rentonomic.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Supabase config
+# Supabase setup
 SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Cloudinary config
-CLOUDINARY_UPLOAD_URL = "https://api.cloudinary.com/v1_1/dhyl0yxej/image/upload"
-CLOUDINARY_API_KEY = "122738243499659"
-CLOUDINARY_API_SECRET = "PBHAFuFRmNFVK7IQlznRuZpBiDw"
+# Cloudinary setup
+cloudinary.config(
+    cloud_name="dkrvmd2of",
+    api_key="879964474696449",
+    api_secret="nzDyslQw1-mUIbFSyGq-j_94U4Y"
+)
 
 @app.post("/listing")
 async def create_listing(
@@ -41,36 +36,25 @@ async def create_listing(
     image: UploadFile = File(...)
 ):
     try:
-        # Upload image to Cloudinary
-        files = {"file": (image.filename, await image.read())}
-        data = {
-            "api_key": CLOUDINARY_API_KEY,
-            "timestamp": str(uuid.uuid4()),
-            "folder": "rentonomic"
-        }
-        response = requests.post(CLOUDINARY_UPLOAD_URL, data=data, files=files, auth=(CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET))
+        # Upload to Cloudinary
+        upload_result = cloudinary.uploader.upload(image.file)
+        image_url = upload_result.get("secure_url")
 
-        if response.status_code != 200:
-            return {"error": "Image upload failed"}
-
-        image_url = response.json().get("secure_url")
-
-        # Insert listing into Supabase
-        short_location = location.split()[0].upper()  # e.g., "YO8"
+        # Save to Supabase
         data = {
             "title": title,
             "description": description,
-            "location": short_location,
+            "location": location[:3].upper(),
             "price_per_day": price_per_day,
             "image_url": image_url
         }
+        supabase.table("listings").insert(data).execute()
 
-        result = supabase.table("listings").insert(data).execute()
-
-        return {"message": "Listing created successfully", "data": result.data}
+        return {"message": "Listing created successfully!"}
 
     except Exception as e:
         return {"error": str(e)}
+
 
 
 
