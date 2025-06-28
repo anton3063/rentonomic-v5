@@ -1,65 +1,62 @@
-from fastapi import FastAPI, Form, UploadFile, File, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
-import cloudinary
-import cloudinary.uploader
 import requests
 
+# FastAPI setup
 app = FastAPI()
 
+# ✅ CORS fix
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://rentonomic.com",
+        "https://www.rentonomic.com",
+        "https://rentonomic.netlify.app",  # optionally add this if needed
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
+# ✅ Supabase config
+SUPABASE_URL = "https://dzwtgztiipuqnxrpeoyei.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-cloudinary.config(
-    cloud_name="dhgzj1bkj",
-    api_key="367543761227265",
-    api_secret="nTP_9yqMxl_X7IbGvhT4zmbU7Dg",
-    secure=True
-)
+# ✅ Listing model
+class Listing(BaseModel):
+    title: str
+    description: str
+    location: str
+    price_per_day: float
+    image_url: str
 
-@app.post("/listings")
-async def create_listing(
-    title: str = Form(...),
-    description: str = Form(...),
-    location: str = Form(...),
-    price_per_day: float = Form(...),
-    image: UploadFile = File(...),
-):
-    try:
-        upload_result = cloudinary.uploader.upload(image.file, resource_type="image")
-        image_url = upload_result.get("secure_url")
-        if not image_url:
-            raise HTTPException(status_code=500, detail="Failed to upload image")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image upload error: {e}")
+# ✅ Root test
+@app.get("/")
+def read_root():
+    return {"message": "Rentonomic backend is live!"}
 
+# ✅ Create new listing
+@app.post("/listing")
+def create_listing(listing: Listing):
     data = {
-        "title": title,
-        "description": description,
-        "location": location,
-        "price_per_day": price_per_day,
-        "image_url": image_url,
+        "title": listing.title,
+        "description": listing.description,
+        "location": listing.location,
+        "price_per_day": listing.price_per_day,
+        "image_url": listing.image_url,
     }
     response = supabase.table("listings").insert(data).execute()
-    if response.error:
-        raise HTTPException(status_code=500, detail=f"Database error: {response.error.message}")
+    return {"message": "Listing created successfully", "data": response.data}
 
-    return {"message": "Listing created", "listing": response.data}
-
+# ✅ Get all listings
 @app.get("/listings")
-async def get_listings():
+def get_listings():
     response = supabase.table("listings").select("*").execute()
     return response.data
+
 
 
 
