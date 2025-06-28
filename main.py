@@ -1,19 +1,18 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
-import requests
 
-# FastAPI setup
+# ✅ FastAPI app
 app = FastAPI()
 
-# ✅ CORS fix
+# ✅ CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://rentonomic.com",
         "https://www.rentonomic.com",
-        "https://rentonomic.netlify.app",  # optionally add this if needed
+        "https://rentonomic.netlify.app"  # optional
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -38,7 +37,7 @@ class Listing(BaseModel):
 def read_root():
     return {"message": "Rentonomic backend is live!"}
 
-# ✅ Create new listing
+# ✅ Add new listing
 @app.post("/listing")
 def create_listing(listing: Listing):
     data = {
@@ -56,6 +55,7 @@ def create_listing(listing: Listing):
 def get_listings():
     response = supabase.table("listings").select("*").execute()
     return response.data
+
 
 
 
