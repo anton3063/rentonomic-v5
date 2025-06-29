@@ -1,17 +1,15 @@
-from fastapi import FastAPI, UploadFile, Form
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from supabase import create_client, Client
+import cloudinary
 import cloudinary.uploader
 import os
-from dotenv import load_dotenv
-
-# Load .env if available (optional)
-load_dotenv()
+import uuid
+import psycopg2
 
 app = FastAPI()
 
-# ✅ CORS: Allow frontend domain
+# ✅ CORS fix — allow your frontend domain
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://rentonomic.com"],
@@ -20,54 +18,68 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Supabase config
-SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 # ✅ Cloudinary config
 cloudinary.config(
-    cloud_name="dmrbagjxz",
-    api_key="874448255545393",
-    api_secret="xN7Mz4_MQZ1tQifU2oNQWkdzUsA",
-    secure=True,
+    cloud_name="dzwtgztiip",
+    api_key="679361233196224",
+    api_secret="QREHyDjHoCevBflpUt6B7iEqDKc",
+    secure=True
 )
 
+# ✅ Supabase/Postgres connection
+conn = psycopg2.connect(
+    host="db.dzwtgztiipuqnxrpeoyei.supabase.co",
+    dbname="postgres",
+    user="postgres",
+    password="Concrete-0113xyz",
+    port=5432
+)
+cur = conn.cursor()
+
+# ✅ Listing endpoint
 @app.post("/listing")
 async def create_listing(
     title: str = Form(...),
     description: str = Form(...),
     location: str = Form(...),
     price_per_day: float = Form(...),
-    image: UploadFile = Form(...)
+    image: UploadFile = File(...)
 ):
     try:
         # ✅ Upload image to Cloudinary
-        upload_result = cloudinary.uploader.upload(image.file)
-        image_url = upload_result.get("secure_url")
+        result = cloudinary.uploader.upload(image.file)
+        image_url = result["secure_url"]
 
-        # ✅ Trim location to first part of postcode
-        general_location = location.strip().split(" ")[0].upper()
+        # ✅ Store in Supabase
+        listing_id = str(uuid.uuid4())
+        cur.execute("""
+            INSERT INTO listings (id, title, description, location, price_per_day, image_url)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (listing_id, title, description, location[:3], price_per_day, image_url))
+        conn.commit()
 
-        # ✅ Insert into Supabase
-        data = {
-            "title": title,
-            "description": description,
-            "location": general_location,
-            "price_per_day": price_per_day,
-            "image_url": image_url
-        }
-
-        response = supabase.table("listings").insert(data).execute()
-
-        if response.status_code == 201 or response.status_code == 200:
-            return {"message": "Listing created successfully"}
-        else:
-            return JSONResponse(status_code=500, content={"error": "Failed to insert listing into database"})
-
+        return {"message": "Listing created successfully", "id": listing_id}
+    
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ✅ Get listings
+@app.get("/listings")
+def get_listings():
+    cur.execute("SELECT id, title, description, location, price_per_day, image_url FROM listings ORDER BY created_at DESC")
+    rows = cur.fetchall()
+    listings = []
+    for row in rows:
+        listings.append({
+            "id": row[0],
+            "title": row[1],
+            "description": row[2],
+            "location": row[3],
+            "price_per_day": row[4],
+            "image_url": row[5],
+        })
+    return listings
+
 
 
 
