@@ -1,14 +1,14 @@
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-import uuid
 import asyncpg
+import uuid
 import cloudinary.uploader
+import cloudinary
 
 app = FastAPI()
 
-# ✅ Allow frontend domain
+# ✅ Allow frontend from rentonomic.com
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://rentonomic.com"],
@@ -17,17 +17,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Supabase DB connection
+# ✅ Supabase connection (PostgreSQL)
 DATABASE_URL = "postgresql://postgres:Concrete-0113xyz@db.dzwtgztiipuqnrpeoye.supabase.co:5432/postgres"
 
-# ✅ Cloudinary config
+# ✅ Cloudinary credentials
 cloudinary.config(
-    cloud_name="dzd5v9ggu",  # Update if different
+    cloud_name="dzd5v9ggu",        # <- double-check this is your Cloudinary cloud name
     api_key="815282963778522",
     api_secret="JRXqWrZoY1ibmiPyDWW_TpQ4D4c"
 )
 
-# ✅ Connect once on startup
+# ✅ Connect to Supabase on startup
 @app.on_event("startup")
 async def startup():
     app.state.db = await asyncpg.connect(DATABASE_URL)
@@ -50,16 +50,17 @@ async def create_listing(
         result = cloudinary.uploader.upload(image.file)
         image_url = result["secure_url"]
 
-        # Generate UUID for listing
+        # Generate UUID
         listing_id = str(uuid.uuid4())
 
-        # Insert into Supabase (Postgres)
+        # Insert listing into Supabase/Postgres
         await app.state.db.execute("""
             INSERT INTO listings (id, title, location, description, price_per_day, image_url)
             VALUES ($1, $2, $3, $4, $5, $6)
         """, listing_id, title, location, description, price_per_day, image_url)
 
-        return JSONResponse(content={"message": "Listing created"}, status_code=201)
+        return JSONResponse(content={"message": "Listing created successfully"}, status_code=201)
+
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
@@ -69,6 +70,7 @@ async def get_listings():
     rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")
     listings = [dict(row) for row in rows]
     return listings
+
 
 
 
