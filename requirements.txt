@@ -1,10 +1,14 @@
 fastapi
 uvicorn
-requests
-python-dotenv
-supabase
-cloudinary
 python-multipart
+cloudinary
+psycopg2-binary
+fastapi
+uvicorn
+python-multipart
+cloudinary
+psycopg2-binary
+
 
 
 
