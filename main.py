@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import asyncpg
 import uuid
-import cloudinary.uploader
 import cloudinary
+import cloudinary.uploader
 
 app = FastAPI()
 
@@ -41,8 +41,8 @@ async def create_listing(
     image: UploadFile = Form(...)
 ):
     try:
-        result = cloudinary.uploader.upload(image.file)
-        image_url = result["secure_url"]
+        uploaded = cloudinary.uploader.upload(image.file)
+        image_url = uploaded["secure_url"]
         listing_id = str(uuid.uuid4())
 
         await app.state.db.execute("""
@@ -50,16 +50,15 @@ async def create_listing(
             VALUES ($1, $2, $3, $4, $5, $6)
         """, listing_id, title, location, description, price_per_day, image_url)
 
-        return JSONResponse(content={"message": "Listing created"}, status_code=201)
-
+        return JSONResponse(content={"message": "Listing created successfully"}, status_code=201)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @app.get("/listings")
 async def get_listings():
     rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")
-    listings = [dict(row) for row in rows]
-    return listings
+    return [dict(row) for row in rows]
+
 
 
 
