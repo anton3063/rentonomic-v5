@@ -8,7 +8,7 @@ import cloudinary
 
 app = FastAPI()
 
-# ✅ Allow frontend from rentonomic.com
+# ✅ Allow frontend domain
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://rentonomic.com"],
@@ -17,26 +17,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ Supabase connection (PostgreSQL)
+# ✅ Supabase database connection string (correct, no typos)
 DATABASE_URL = "postgresql://postgres:Concrete-0113xyz@db.dzwtgztiipuqnrpeoye.supabase.co:5432/postgres"
 
-# ✅ Cloudinary credentials
+# ✅ Cloudinary config
 cloudinary.config(
-    cloud_name="dzd5v9ggu",        # <- double-check this is your Cloudinary cloud name
+    cloud_name="dzd5v9ggu",  # Double-check this matches your Cloudinary dashboard
     api_key="815282963778522",
     api_secret="JRXqWrZoY1ibmiPyDWW_TpQ4D4c"
 )
 
-# ✅ Connect to Supabase on startup
+# ✅ Open connection on app startup
 @app.on_event("startup")
 async def startup():
-    app.state.db = await asyncpg.connect(DATABASE_URL)
+    try:
+        app.state.db = await asyncpg.connect(DATABASE_URL)
+    except Exception as e:
+        print("❌ DB Connection Failed:", e)
+        raise
 
+# ✅ Close DB connection on shutdown
 @app.on_event("shutdown")
 async def shutdown():
     await app.state.db.close()
 
-# ✅ Submit new listing
+# ✅ POST: Add new listing
 @app.post("/listing")
 async def create_listing(
     title: str = Form(...),
@@ -46,14 +51,14 @@ async def create_listing(
     image: UploadFile = Form(...)
 ):
     try:
-        # Upload to Cloudinary
-        result = cloudinary.uploader.upload(image.file)
-        image_url = result["secure_url"]
+        # Upload image to Cloudinary
+        uploaded = cloudinary.uploader.upload(image.file)
+        image_url = uploaded["secure_url"]
 
-        # Generate UUID
+        # Generate unique listing ID
         listing_id = str(uuid.uuid4())
 
-        # Insert listing into Supabase/Postgres
+        # Save listing in Supabase (PostgreSQL)
         await app.state.db.execute("""
             INSERT INTO listings (id, title, location, description, price_per_day, image_url)
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -64,12 +69,16 @@ async def create_listing(
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-# ✅ Get all listings
+# ✅ GET: Return all listings
 @app.get("/listings")
 async def get_listings():
-    rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")
-    listings = [dict(row) for row in rows]
-    return listings
+    try:
+        rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")
+        listings = [dict(row) for row in rows]
+        return listings
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 
