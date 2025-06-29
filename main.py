@@ -53,7 +53,9 @@ async def create_listing(
 
 @app.get("/listings")
 async def get_listings():
-    rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")*
+    rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")
+    return [dict(row) for row in rows]
+
 
 
 
