@@ -1,58 +1,75 @@
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import cloudinary.uploader
-import psycopg2
+from fastapi.staticfiles import StaticFiles
 import uuid
+import asyncpg
+import cloudinary.uploader
 
 app = FastAPI()
 
-# === CORS SETTINGS ===
+# ✅ Allow frontend domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://rentonomic.com"],  # Must exactly match frontend domain
+    allow_origins=["https://rentonomic.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# === CLOUDINARY CONFIG ===
+# ✅ Supabase DB connection
+DATABASE_URL = "postgresql://postgres:Concrete-0113xyz@db.dzwtgztiipuqnrpeoye.supabase.co:5432/postgres"
+
+# ✅ Cloudinary config
 cloudinary.config(
-    cloud_name="dxvhlqldx",
-    api_key="382784757258584",
-    api_secret="FAbfUoHqfKqUNu6EZulMRZ6uU0I"
+    cloud_name="dzd5v9ggu",  # Update if different
+    api_key="815282963778522",
+    api_secret="JRXqWrZoY1ibmiPyDWW_TpQ4D4c"
 )
 
-# === DATABASE CONNECTION (Supabase) ===
-conn = psycopg2.connect(
-    "postgresql://postgres:Concrete-0113xyz@db.dzwgtziiupqnxrpeoyei.supabase.co:5432/postgres"
-)
-cur = conn.cursor()
+# ✅ Connect once on startup
+@app.on_event("startup")
+async def startup():
+    app.state.db = await asyncpg.connect(DATABASE_URL)
 
-# === ENDPOINT ===
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.db.close()
+
+# ✅ Submit new listing
 @app.post("/listing")
 async def create_listing(
     title: str = Form(...),
-    description: str = Form(...),
     location: str = Form(...),
-    price_per_day: str = Form(...),
+    description: str = Form(...),
+    price_per_day: float = Form(...),
     image: UploadFile = Form(...)
 ):
     try:
-        # Upload image to Cloudinary
-        result = cloudinary.uploader.upload(image.file, public_id=str(uuid.uuid4()))
+        # Upload to Cloudinary
+        result = cloudinary.uploader.upload(image.file)
         image_url = result["secure_url"]
 
-        # Insert into Supabase (PostgreSQL)
-        cur.execute(
-            "INSERT INTO listings (title, description, location, price_per_day, image_url) VALUES (%s, %s, %s, %s, %s)",
-            (title, description, location, price_per_day, image_url)
-        )
-        conn.commit()
+        # Generate UUID for listing
+        listing_id = str(uuid.uuid4())
 
-        return {"message": "Listing created successfully"}
+        # Insert into Supabase (Postgres)
+        await app.state.db.execute("""
+            INSERT INTO listings (id, title, location, description, price_per_day, image_url)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """, listing_id, title, location, description, price_per_day, image_url)
+
+        return JSONResponse(content={"message": "Listing created"}, status_code=201)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+# ✅ Get all listings
+@app.get("/listings")
+async def get_listings():
+    rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")
+    listings = [dict(row) for row in rows]
+    return listings
+
 
 
 
