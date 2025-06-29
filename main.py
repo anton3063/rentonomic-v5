@@ -1,13 +1,17 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import create_client, Client
 import cloudinary.uploader
 import os
+from dotenv import load_dotenv
+
+# Load .env if available (optional)
+load_dotenv()
 
 app = FastAPI()
 
-# === ✅ CORS FIX ===
+# ✅ CORS: Allow frontend domain
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://rentonomic.com"],
@@ -16,58 +20,55 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === ✅ Supabase Config ===
+# ✅ Supabase config
 SUPABASE_URL = "https://dzwtgztiipuqnxrpeoye.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR6d3RnenRpaXB1cW54cnBlb3llIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2NzAxNDUsImV4cCI6MjA2NjI0NjE0NX0.9pTagxo-EKolvBAYY3lxVVvRC89DsbSGUY6Gy67Y7MQ"
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# === ✅ Cloudinary Config ===
+# ✅ Cloudinary config
 cloudinary.config(
-    cloud_name="dj8id8p3j",
-    api_key="154397339799479",
-    api_secret="0RPnRY1O_oYMn8WNTIkj1ek-FmQ",
-    secure=True
+    cloud_name="dmrbagjxz",
+    api_key="874448255545393",
+    api_secret="xN7Mz4_MQZ1tQifU2oNQWkdzUsA",
+    secure=True,
 )
 
-# === ✅ POST /listing ===
 @app.post("/listing")
 async def create_listing(
     title: str = Form(...),
     description: str = Form(...),
     location: str = Form(...),
     price_per_day: float = Form(...),
-    image: UploadFile = File(...)
+    image: UploadFile = Form(...)
 ):
     try:
-        # Upload image to Cloudinary
+        # ✅ Upload image to Cloudinary
         upload_result = cloudinary.uploader.upload(image.file)
         image_url = upload_result.get("secure_url")
 
-        # Get postcode prefix (first part of postcode)
-        postcode_prefix = location.strip().split(" ")[0].upper()
+        # ✅ Trim location to first part of postcode
+        general_location = location.strip().split(" ")[0].upper()
 
-        # Store in Supabase
+        # ✅ Insert into Supabase
         data = {
             "title": title,
             "description": description,
-            "location": postcode_prefix,
+            "location": general_location,
             "price_per_day": price_per_day,
             "image_url": image_url
         }
+
         response = supabase.table("listings").insert(data).execute()
 
-        return {"message": "Listing created successfully"}
+        if response.status_code == 201 or response.status_code == 200:
+            return {"message": "Listing created successfully"}
+        else:
+            return JSONResponse(status_code=500, content={"error": "Failed to insert listing into database"})
+
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === ✅ GET /listings ===
-@app.get("/listings")
-async def get_listings():
-    try:
-        response = supabase.table("listings").select("*").execute()
-        return response.data
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 
