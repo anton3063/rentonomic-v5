@@ -1,84 +1,59 @@
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import cloudinary
 import cloudinary.uploader
-import os
-import uuid
 import psycopg2
+import uuid
 
 app = FastAPI()
 
-# ✅ CORS fix — allow your frontend domain
+# === CORS SETTINGS ===
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://rentonomic.com"],
+    allow_origins=["https://rentonomic.com"],  # Must exactly match frontend domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ✅ Cloudinary config
+# === CLOUDINARY CONFIG ===
 cloudinary.config(
-    cloud_name="dzwtgztiip",
-    api_key="679361233196224",
-    api_secret="QREHyDjHoCevBflpUt6B7iEqDKc",
-    secure=True
+    cloud_name="dxvhlqldx",
+    api_key="382784757258584",
+    api_secret="FAbfUoHqfKqUNu6EZulMRZ6uU0I"
 )
 
-# ✅ Supabase/Postgres connection
+# === DATABASE CONNECTION (Supabase) ===
 conn = psycopg2.connect(
-    host="db.dzwtgztiipuqnxrpeoyei.supabase.co",
-    dbname="postgres",
-    user="postgres",
-    password="Concrete-0113xyz",
-    port=5432
+    "postgresql://postgres:Concrete-0113xyz@db.dzwgtziiupqnxrpeoyei.supabase.co:5432/postgres"
 )
 cur = conn.cursor()
 
-# ✅ Listing endpoint
+# === ENDPOINT ===
 @app.post("/listing")
 async def create_listing(
     title: str = Form(...),
     description: str = Form(...),
     location: str = Form(...),
-    price_per_day: float = Form(...),
-    image: UploadFile = File(...)
+    price_per_day: str = Form(...),
+    image: UploadFile = Form(...)
 ):
     try:
-        # ✅ Upload image to Cloudinary
-        result = cloudinary.uploader.upload(image.file)
+        # Upload image to Cloudinary
+        result = cloudinary.uploader.upload(image.file, public_id=str(uuid.uuid4()))
         image_url = result["secure_url"]
 
-        # ✅ Store in Supabase
-        listing_id = str(uuid.uuid4())
-        cur.execute("""
-            INSERT INTO listings (id, title, description, location, price_per_day, image_url)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (listing_id, title, description, location[:3], price_per_day, image_url))
+        # Insert into Supabase (PostgreSQL)
+        cur.execute(
+            "INSERT INTO listings (title, description, location, price_per_day, image_url) VALUES (%s, %s, %s, %s, %s)",
+            (title, description, location, price_per_day, image_url)
+        )
         conn.commit()
 
-        return {"message": "Listing created successfully", "id": listing_id}
-    
+        return {"message": "Listing created successfully"}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
-# ✅ Get listings
-@app.get("/listings")
-def get_listings():
-    cur.execute("SELECT id, title, description, location, price_per_day, image_url FROM listings ORDER BY created_at DESC")
-    rows = cur.fetchall()
-    listings = []
-    for row in rows:
-        listings.append({
-            "id": row[0],
-            "title": row[1],
-            "description": row[2],
-            "location": row[3],
-            "price_per_day": row[4],
-            "image_url": row[5],
-        })
-    return listings
 
 
 
