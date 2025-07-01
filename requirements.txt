@@ -1,8 +1,10 @@
 fastapi
 uvicorn
-asyncpg
+python-dotenv
+requests
+supabase
 cloudinary
-python-multipart
+
 
 
 
