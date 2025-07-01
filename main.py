@@ -8,16 +8,23 @@ import cloudinary.uploader
 
 app = FastAPI()
 
+# ✅ CORS fix – includes all frontend origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://rentonomic.com"],
+    allow_origins=[
+        "https://rentonomic.com",
+        "https://www.rentonomic.com",
+        "https://rentonomic.netlify.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ✅ Supabase connection string
 DATABASE_URL = "postgresql://postgres:Concrete-0113xyz@dzwtgztiipuqnrpeoye.pooler.supabase.co:5432/postgres"
 
+# ✅ Cloudinary config
 cloudinary.config(
     cloud_name="dzd5v9ggu",
     api_key="815282963778522",
@@ -32,6 +39,7 @@ async def startup():
 async def shutdown():
     await app.state.db.close()
 
+# ✅ POST: Add a listing
 @app.post("/listing")
 async def create_listing(
     title: str = Form(...),
@@ -51,10 +59,12 @@ async def create_listing(
 
     return {"message": "Listing created successfully"}
 
+# ✅ GET: Retrieve all listings
 @app.get("/listings")
 async def get_listings():
     rows = await app.state.db.fetch("SELECT * FROM listings ORDER BY id DESC")
     return [dict(row) for row in rows]
+
 
 
 
