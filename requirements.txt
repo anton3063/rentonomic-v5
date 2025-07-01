@@ -1,9 +1,9 @@
 fastapi
 uvicorn
-python-dotenv
-requests
-supabase-py==2.0.3
-cloudinary==1.34.0
+psycopg2-binary
+cloudinary
+python-multipart
+
 
 
 
